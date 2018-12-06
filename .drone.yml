@@ -1,0 +1,50 @@
+clone:
+    depth: 50
+    recursive: false
+    tags: false
+    path: /drone/src/github.com/viper/viper-public
+    
+    
+compose:
+
+  postgres:
+    privileged: true
+    image: postgres:9.3.12
+    environment:
+        POSTGRES_USER: viper
+        POSTGRES_PASSWORD: password
+        POSTGRES_DB: viper
+        
+  cassandra:
+    privileged: true
+    image: viper/cassandra:single-1.2.19-v1
+  
+  rabbitmq:
+    image: rabbitmq:3.4
+    environment:
+        RABBITMQ_DEFAULT_VHOST: /
+        RABBITMQ_DEFAULT_USER: viper
+        RABBIT_MQ_DEFAULT_PASS: viper
+  memcached:   
+    image: memcached:1.4.21
+  
+  zookeeper:
+    image: jplock/zookeeper:3.4.6
+
+
+build:
+  image: viper/viper-py:latest
+  pull: true
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+  commands:
+    - install/drone.sh
+    - cd v1
+    - nosetests -v .
+    - cd ..
+    - ./scripts/stylecheck_git_diff.sh
+
+notify:
+  slack:
+    webhook_url: $$CI_SLACK_WEBHOOK_URL
+    channel: ci-notifications

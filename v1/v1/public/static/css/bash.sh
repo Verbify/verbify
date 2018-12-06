@@ -1,0 +1,11 @@
+repren --from Verbify --to Verbify --full .
+repren --from Verbify --to VERBIFY --full .
+repren --from verbify --to verbify --full .
+repren --from v1 --to v1 --full .
+repren --from R2 --to V1 --full .
+repren --from sodium --to sodium --full .
+repren --from SODIUM --to SODIUM --full .
+repren --from Sodium --to Sodium --full .
+repren --from sild --to sild --full .
+repren --from Sild --to Sild --full .
+repren --from SILD --to SILD --full .

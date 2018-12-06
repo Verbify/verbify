@@ -1,0 +1,109 @@
+set -e
+
+source /etc/default/verbify
+export TMPDIR=${TMPDIR:-/tmp}
+export PGUSER=${PGUSER:-verbify}
+export PGHOST=${PGHOST:-localhost}
+
+
+export THING_CLS="$1"
+export INTERVAL="$2"
+export TIMES="$3"
+
+echo "Starting $THING_CLS processing"
+
+export VERBIFY_ERRORS_TO_SENTRY=1
+
+THING_DUMP=$TMPDIR/$THING_CLS-$INTERVAL-thing.dump
+DATA_DUMP=$TMPDIR/$THING_CLS-$INTERVAL-data.dump
+function clean_up {
+    rm -f $THING_DUMP $DATA_DUMP
+}
+
+if [ -e $THING_DUMP ]; then
+    echo cannot start because $THING_DUMP exists
+    ls -l $THING_DUMP
+    exit 1
+fi
+touch $THING_DUMP
+
+trap clean_up EXIT
+
+function run_query {
+    psql -F"\t" -A -t -c "$1"
+}
+
+function mrsort {
+    LC_ALL=C sort -S200m
+}
+
+function verbify {
+    verbify_usage() {
+        echo "verbify: [-jN] cmd..." 2>&1
+        exit
+    }
+
+    local OPTIND o njobs
+
+    njobs=1
+
+    while getopts ":j:" o; do
+        case "${o}" in
+            j)
+                njobs="${OPTARG}"
+                ;;
+            *)
+                verbify_usage
+                ;;
+        esac
+    done
+    shift $((OPTIND-1))
+
+    cmd="paster --plugin=v1 run $VERBIFY_INI $VERBIFY_ROOT/v1/lib/mr_top.py -c \"$@ # $THING_CLS $INTERVAL $TIMES\""
+
+    if [ "$njobs" = "1" ]; then
+        sh -c "$cmd" 
+    else
+        $VERBIFY_ROOT/../scripts/hashdist.py -n"$njobs" -- sh -c "$cmd"
+    fi
+}
+
+# Hack to let pg fetch all things with intervals
+if [ $INTERVAL = "all" ]; then
+   export INTERVAL="century"
+fi
+
+MINID=$(run_query "SELECT thing_id
+                   FROM verbify_thing_$THING_CLS
+                   WHERE
+                      date > now() - interval '1 $INTERVAL' AND
+                      date < now()
+                   ORDER BY date
+                   LIMIT 1")
+if [ -z $MINID ]; then
+    echo \$MINID is empty. Replication is likely behind.
+    exit 1
+fi
+
+run_query "\\copy (SELECT thing_id, 'thing', '$THING_CLS', ups, downs, deleted, spam, extract(epoch from date)
+                   FROM verbify_thing_$THING_CLS
+                   WHERE
+                       not deleted AND
+                       thing_id >= $MINID
+                  ) to $THING_DUMP"
+
+run_query "\\copy (SELECT thing_id, 'data', '$THING_CLS', key, value
+                   FROM verbify_data_$THING_CLS
+                   WHERE
+                       key IN ('url', 'sr_id', 'author_id') AND
+                       thing_id >= $MINID
+                  ) to $DATA_DUMP"
+
+cat $THING_DUMP $DATA_DUMP |
+    mrsort |
+    verbify "join_things('$THING_CLS')" |
+    verbify "time_listings($TIMES, '$THING_CLS')" |
+    mrsort |
+    verbify -j4 "write_permacache()"
+
+echo 'Done.'

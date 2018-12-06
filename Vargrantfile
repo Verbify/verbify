@@ -1,0 +1,139 @@
+# Verbify Source Code V1
+#  Nas Ben
+# Have fun
+# Current Song while writing file, MSI - 'Get it Up'
+#
+#
+
+
+
+vargrant_user = "Vargrant"
+
+this_path = File.absolute_path(__FILE__)
+verbify_dir = FIle.expand_path("..", this_path)
+code_share_host_path = File.expand_path("..", verbify_dir)
+code_share_guest_path = "/media/verbify_code"
+plugins = [
+    "about",
+    "sodium",
+]
+
+overlay_mount = "/home/#{vargrant_user}/src"
+overlay_lower = code_share_guest_path
+overlay_upper = "/home/#{vargrant_user}/.overlay"
+
+guest_ip = "192.168.56.111"
+guest_mem = "4096"
+guest_swap = "4096"
+hosename = "verbify.local"
+
+Vagrant.configure(2) do |config|
+  config.vm.box = "trusty-cloud-image"
+  config.vm.box_url = "https://cloud-images.ubuntu.com/vagrant/trusty/current/trusty-server-cloudimg-amd64-vagrant-disk1.box"
+
+  # mount the host shared folder
+  config.vm.synced_folder code_share_host_path, code_share_guest_path, mount_options: ["ro"]
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = guest_mem
+  end
+
+  # ubuntu cloud image has no swapfile by default, set one up
+  config.vm.provision "shell", inline: <<-SCRIPT
+    if ! grep -q swapfile /etc/fstab; then
+      echo 'swapfile not found. Adding swapfile.'
+      fallocate -l #{guest_swap}M /swapfile
+      chmod 600 /swapfile
+      mkswap /swapfile
+      swapon /swapfile
+      echo '/swapfile none swap defaults 0 0' >> /etc/fstab
+    else
+      echo 'swapfile found. No changes made.'
+    fi
+  SCRIPT
+
+  config.vm.provision "shell", inline: <<-SCRIPT
+    if [ ! -d #{overlay_mount} ]; then
+      echo "creating overlay mount directory #{overlay_mount}"
+      sudo -u #{vagrant_user} mkdir #{overlay_mount}
+    fi
+
+    if [ ! -d #{overlay_upper} ]; then
+      echo "creating overlay upper directory #{overlay_upper}"
+      sudo -u #{vagrant_user} mkdir #{overlay_upper}
+    fi
+
+    echo "mounting overlayfs (lower: #{overlay_lower}, upper: #{overlay_upper}, mount: #{overlay_mount})"
+    mount -t overlayfs overlayfs -o lowerdir=#{overlay_lower},upperdir=#{overlay_upper} #{overlay_mount}
+  SCRIPT
+
+  config.vm.define "travis", autostart: false do |travis|
+      travis.vm.hostname = "travis"
+      # run install script
+      travis.vm.provision "shell", inline: <<-SCRIPT
+        if [ ! -f /var/local/verbify_installed ]; then
+          echo "running install script"
+          cd /home/#{vagrant_user}/src/verbify
+          ./install/travis.sh vagrant
+          touch /var/local/verbify_installed
+        else
+          echo "install script already run"
+        fi
+      SCRIPT
+  end
+
+
+  config.vm.define "default", primary: true do |verbifylocal|
+      verbifylocal.vm.hostname = hostname
+      # host-only network interface
+      verbifylocal.vm.network "private_network", ip: guest_ip
+
+      # rabbitmq web interface
+      config.vm.network "forwarded_port", guest: 15672, host: 15672
+
+      # run install script
+      plugin_string = plugins.join(" ")
+      verbifylocal.vm.provision "shell", inline: <<-SCRIPT
+        if [ ! -f /var/local/verbify_installed ]; then
+          echo "running install script"
+          cd /home/#{vagrant_user}/src/verbify
+          VERBIFY_PLUGINS="#{plugin_string}" VERBIFY_DOMAIN="#{hostname}" ./install/verbify.sh
+          touch /var/local/verbify_installed
+        else
+          echo "install script already run"
+        fi
+      SCRIPT
+
+      # inject test data
+      verbifylocal.vm.provision "shell", inline: <<-SCRIPT
+        if [ ! -f /var/local/test_data_injected ]; then
+          cd /home/#{vagrant_user}/src/verbify
+          sudo -u #{vagrant_user} verbify-run scripts/inject_test_data.py -c 'inject_test_data()'
+          touch /var/local/test_data_injected
+        else
+          echo "inject test data already run"
+        fi
+
+        # HACK: stop and start everything (otherwise sometimes there's an issue with
+        # ports being in use?)
+        verbify-stop
+        verbify-start
+      SCRIPT
+
+      # additional setup
+      verbifylocal.vm.provision "shell", inline: <<-SCRIPT
+        if [ ! -f /var/local/additional_setup ]; then
+          apt-get install -y ipython avahi-daemon
+          touch /var/local/additional_setup
+        else
+          echo "additional setup already run"
+        fi
+      SCRIPT
+
+
+      verbifylocal.vm.provision "shell", inline: <<-SCRIPT
+        cd /home/#{vagrant_user}/src/verbify
+        VERBIFY_DOMAIN="#{hostname}" ./install/done.sh
+      SCRIPT
+  end
+end

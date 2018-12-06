@@ -1,0 +1,81 @@
+## The contents of this file are subject to the Common Public Attribution
+## License Version 1.0. (the "License"); you may not use this file except in
+## compliance with the License. You may obtain a copy of the License at
+## http://code.verbify.com/LICENSE. The License is based on the Mozilla Public
+## License Version 1.1, but Sections 14 and 15 have been added to cover use of
+## software over a computer network and provide for limited attribution for the
+## Original Developer. In addition, Exhibit A has been modified to be
+## consistent with Exhibit B.
+##
+## Software distributed under the License is distributed on an "AS IS" basis,
+## WITHOUT WARRANTY OF ANY KIND, either express or implied. See the License for
+## the specific language governing rights and limitations under the License.
+##
+## The Original Code is verbify.
+##
+## The Original Developer is the Initial Developer.  The Initial Developer of
+## the Original Code is verbify Inc.
+##
+## All portions of the code written by verbify are Copyright (c) 2006-2015
+## verbify Inc. All Rights Reserved.
+###############################################################################
+
+<%namespace file="utils.html" import="_md, _mdf"/>
+
+<div class="sodium-wrap">
+  <h1 class="sodium-banner"><a href="/silding">${_('silding')}</a></h1>
+
+  <div class="fancy">
+    <div class="fancy-inner">
+        <div class="fancy-content">
+            <div class="container">
+                <dl class="silding-faq">
+                  <dt class="toggle toggled" id="what-is-silding">${_('What is silding?')}</dt>
+                  <dd>
+                    ${_md("Giving [verbify sodium](/sodium/about) is referred to as 'silding'. You can either give verbify sodium directly to a user or sild one of their posts or comments.")}
+                  </dd>
+
+                  <dt class="toggle toggled" id="how-do-i-sild">${_('How do I sild someone?')}</dt>
+                  <dd>
+                    ${_("You can click the 'give sodium' link directly below a submission:")}
+
+                    <div class="example">
+                      <figure class="comment-sild">
+                      </figure>
+                    </div>
+
+                    ${_("Or by giving them sodium via their userpage:")}
+
+                    <div class="example">
+                      <figure class="userpage-sild">
+                      </figure>
+                    </div>
+                  </dd>
+
+                  <dt class="toggle toggled" id="how-much-does-it-cost">${_('How much does it cost?')}</dt>
+                  <dd>
+                    ${_mdf("A single silding costs %(price)s. If you plan to do a lot you can get a discount if you purchase some [cverbifys](/cverbifys).", price=g.sodium_month_price)}
+                  </dd>
+
+                  <dt class="toggle toggled" id="what-are-cverbifys">${_('What are cverbifys?')}</dt>
+                  <dd>${_('Each cverbify you have can be converted into one month of verbify sodium. Stored as a balance on your account, cverbifys allow you to give sodium without having to enter payment information.')}&#32;${_('Additionally, buying cverbifys in bulk lowers the cost of each silding.')}
+                  </dd>
+
+                  <dt class="toggle toggled" id="using-cverbifys">${_('How do I use cverbifys?')}</dt>
+                  <dd>${_('Your cverbifys are listed as a payment method on the checkout page.')}
+
+                  <div class="example">
+                      <figure class="using-cverbifys">
+                      </figure>
+                    </div>
+                  </dd>
+
+                </dl>
+          </div>
+            <div class="buttons">
+                <a class="btn sodium-button" href="/cverbifys">${_('purchase cverbifys')}</a>
+            </div>
+        </div>
+    </div>
+  </div>
+</div>
