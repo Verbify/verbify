@@ -8,7 +8,7 @@
 set -e 
 
 if [[ $EUID -ne 0 ]]; then
-    echo "Not cool, gotta run this with root powers"
+    echo "ERROR: Must be run with root privileges."
     exit 1
 fi
 
